@@ -48,19 +48,27 @@ def get_versions_and_save(dashboards, folder_path, log_file, grafana_url, http_g
 
             (status, content) = get_dashboard_versions(board['id'], grafana_url, http_get_headers, verify_ssl, client_cert, debug)
             if status == 200:
-                print("found {0} versions for dashboard {1}".format(len(content), to_python2_and_3_compatible_string(board['title'])))
-                get_individual_versions(content, board_folder_path, log_file, grafana_url, http_get_headers, verify_ssl, client_cert, debug, pretty_print)
+                versions_list = content.get('versions', content) if isinstance(content, dict) else content
+                if isinstance(versions_list, list) and len(versions_list) > 0:
+                    print("found {0} versions for dashboard {1}".format(len(versions_list), to_python2_and_3_compatible_string(board['title'])))
+                    get_individual_versions(versions_list, board_folder_path, log_file, grafana_url, http_get_headers, verify_ssl, client_cert, debug, pretty_print)
+                else:
+                    print("No versions found for dashboard {0}".format(to_python2_and_3_compatible_string(board['title'])))
 
 
 def get_individual_versions(versions, folder_path, log_file, grafana_url, http_get_headers, verify_ssl, client_cert, debug, pretty_print):
     file_path = folder_path + '/' + log_file
-    if versions:
+    if versions and isinstance(versions, list):
         with open(u"{0}".format(file_path), 'w') as f:
             for version in versions:
-                (status, content) = get_version(version['dashboardId'], version['version'], grafana_url, http_get_headers, verify_ssl, client_cert, debug)
-                if status == 200:
-                    save_version(str(version['version']), content, folder_path, pretty_print)
-                    f.write('{0}\n'.format(version['version']))
+                if isinstance(version, dict):
+                    print("Processing version {0} for dashboard {1}".format(version.get('version'), version.get('dashboardId')))
+                    (status, content) = get_version(version['dashboardId'], version['version'], grafana_url, http_get_headers, verify_ssl, client_cert, debug)
+                    if status == 200:
+                        save_version(str(version['version']), content, folder_path, pretty_print)
+                        f.write('{0}\n'.format(version['version']))
+                else:
+                    print("Warning: Invalid version data type: {0}".format(type(version).__name__))
 
 
 def save_version(file_name, version, folder_path, pretty_print):
